@@ -1,11 +1,82 @@
-html, body, #root, .mapContainer {
-  height: 100%;
-  margin: 0;
-  padding: 0;
+:root {
+  --bg: #0b1220;
+  --panel: #111827;
+  --muted: #94a3b8;
+  --text: #e5e7eb;
+  --accent: #2563eb;
+  --green: #10b981;
+  --amber: #f59e0b;
+  --gray: #8b8b8b;
 }
 
-.dashboard {
-  position: relative;
-  width: 100%;
+* { box-sizing: border-box; }
+
+html, body, #root {
   height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 0;
+  height: 100%;
+}
+
+.mapContainer {
+  height: 100%;
+}
+
+.sidebar {
+  height: 100%;
+  overflow-y: auto;
+  padding: 16px;
+  background: var(--panel);
+  border-left: 1px solid rgba(255,255,255,0.06);
+}
+
+h1 { margin: 0 0 12px; font-size: 22px; }
+h2 { margin: 0 0 8px; font-size: 16px; color: var(--muted); }
+
+.panel {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 14px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.big { font-size: 32px; font-weight: 700; }
+
+.row { display: flex; gap: 8px; margin-top: 8px; }
+button {
+  background: #1f2937;
+  color: var(--text);
+  border: 1px solid rgba(255,255,255,0.08);
+  padding: 8px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+button:hover { border-color: rgba(255,255,255,0.16); }
+
+.plotBox { display: grid; gap: 6px; margin-bottom: 8px; }
+.plotTitle { font-weight: 600; }
+
+.plotsList { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.pill { width: 100%; text-align: left; }
+.pill.Completed { border-left: 6px solid var(--green); }
+.pill.In-Progress { border-left: 6px solid var(--amber); }
+.pill.Not-Started { border-left: 6px solid var(--gray); }
+
+.list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; }
+.list li { padding: 8px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; }
+
+.weather { display: grid; gap: 4px; color: var(--text); }
+
+@media (max-width: 980px) {
+  .layout { grid-template-columns: 1fr; }
+  .sidebar { grid-row: 2; }
 }
