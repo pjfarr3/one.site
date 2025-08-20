@@ -1,109 +1,134 @@
-import React, { useEffect, useRef, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import React, { useEffect, useRef, useState } from 'react';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
+import './index.css';
+import { supabase } from './supabaseClient';
 
-// Mapbox is provided by the CDN script in index.html
-const mapboxgl = window.mapboxgl;
+mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_TOKEN || '';
+const MAP_CENTER = [-0.1276, 51.5072];
 
-// Supabase client
-const supabase = createClient(
-  "https://woahoxnnnctszdzyjnjf.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndvYWhveG5ubmN0c3pkenlqbmpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU2MzgxNDUsImV4cCI6MjA3MTIxNDE0NX0.byPU10k40RgB9Xypg1RbtBvjZor_hCfCWjhbuZ6gz28"
-);
-
-// Mapbox token
-const MAPBOX_TOKEN =
-  process.env.REACT_APP_MAPBOX_TOKEN ||
-  "pk.eyJ1IjoicGpmYXJyMyIsImEiOiJjbWVqM3BhYjEwMG1vMm1xdGJwb3lpd290In0.B5vwM_eiKFnm32GBNipinQ";
-
-const MAP_CENTER = [-0.1276, 51.5072]; // London
+const statusColors = {
+  'Not Started': '#8b8b8b',
+  'In Progress': '#f59e0b',
+  'Completed': '#10b981',
+};
 
 export default function App() {
   const [plots, setPlots] = useState([]);
   const [selectedPlot, setSelectedPlot] = useState(null);
+  const [deliveries, setDeliveries] = useState([]);
+  const [alerts, setAlerts] = useState([]);
   const [workers, setWorkers] = useState(28);
-  const [deliveries] = useState([{ id: "D-1001", time: "08:17", gate: "North", for: "Plot 2" }]);
-  const [alerts] = useState([{ id: "A-2001", type: "PPE", detail: "No hard hat at Plot 1", time: "08:05" }]);
   const [weather, setWeather] = useState(null);
 
   const mapRef = useRef(null);
   const markersRef = useRef([]);
 
-  // Fetch plots from Supabase
-  useEffect(() => {
-    supabase.from("plots").select("*").then(({ data, error }) => {
-      if (error) {
-        console.error("Supabase error:", error.message);
-        return;
-      }
+  const fetchPlots = async () => {
+    const { data, error } = await supabase.from('plots').select('*').order('id');
+    if (!error) {
       setPlots(data || []);
-    });
-  }, []);
-
-  // Init the Map once
-  useEffect(() => {
-    if (mapRef.current) return;
-    if (!mapboxgl) {
-      console.error("Mapbox GL not found on window. Check index.html CDN script.");
-      return;
+      if (!selectedPlot && data?.length) setSelectedPlot(data[0]);
     }
-    mapboxgl.accessToken = MAPBOX_TOKEN;
-    const map = new mapboxgl.Map({
-      container: "map",
-      style: "mapbox://styles/mapbox/streets-v12",
-      center: MAP_CENTER,
-      zoom: 15,
-    });
-    map.addControl(new mapboxgl.NavigationControl(), "top-left");
-    mapRef.current = map;
-    return () => map.remove();
+  };
+  const fetchDeliveries = async () => {
+    const { data } = await supabase.from('deliveries').select('*').order('created_at', { ascending: false });
+    setDeliveries(data || []);
+  };
+  const fetchAlerts = async () => {
+    const { data } = await supabase.from('alerts').select('*').order('created_at', { ascending: false });
+    setAlerts(data || []);
+  };
+
+  useEffect(() => {
+    const [lng, lat] = MAP_CENTER;
+    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`)
+      .then(r => r.json()).then(d => setWeather(d.current_weather)).catch(() => setWeather(null));
+
+    if (!mapRef.current) {
+      const map = new mapboxgl.Map({
+        container: 'map', style: 'mapbox://styles/mapbox/streets-v12',
+        center: MAP_CENTER, zoom: 15,
+      });
+      mapRef.current = map;
+      map.on('load', drawMarkers);
+    }
+
+    fetchPlots(); fetchDeliveries(); fetchAlerts();
+
+    const channel = supabase
+      .channel('live-updates')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'plots' }, fetchPlots)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'deliveries' }, fetchDeliveries)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'alerts' }, fetchAlerts)
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+      if (mapRef.current) mapRef.current.remove();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Draw markers when plots change
   useEffect(() => {
-    if (!mapRef.current || !mapboxgl) return;
+    if (!mapRef.current) return;
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
-    plots.forEach((p) => {
-      if (typeof p.lng !== "number" || typeof p.lat !== "number") return;
-      const marker = new mapboxgl.Marker()
-        .setLngLat([p.lng, p.lat])
-        .setPopup(new mapboxgl.Popup().setHTML(`<strong>${p.name}</strong><br/>${p.status}`))
+    plots.forEach((plot) => {
+      const marker = new mapboxgl.Marker({ color: statusColors[plot.status] || '#2563eb' })
+        .setLngLat([plot.lng, plot.lat])
+        .setPopup(new mapboxgl.Popup().setHTML(`<strong>${plot.name}</strong><br/>${plot.status}`))
         .addTo(mapRef.current);
-      marker.getElement().addEventListener("click", () => setSelectedPlot(p));
+      marker.getElement().addEventListener('click', () => setSelectedPlot(plot));
       markersRef.current.push(marker);
     });
   }, [plots]);
 
-  // Weather (Open-Meteo)
-  useEffect(() => {
-    const [lng, lat] = MAP_CENTER;
-    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`)
-      .then((r) => r.json())
-      .then((d) => setWeather(d.current_weather))
-      .catch(() => setWeather(null));
-  }, []);
+  const cycle = (s) => (s === 'Not Started' ? 'In Progress' : s === 'In Progress' ? 'Completed' : 'Not Started');
+  const updatePlotStatus = async (plot) => {
+    const newStatus = cycle(plot.status);
+    await supabase.from('plots').update({ status: newStatus }).eq('id', plot.id);
+    setPlots((prev) => prev.map((p) => (p.id === plot.id ? { ...p, status: newStatus } : p)));
+    if (selectedPlot?.id === plot.id) setSelectedPlot({ ...plot, status: newStatus });
+  };
+
+  const addDelivery = async () => {
+    const n = Math.floor(Math.random() * 900) + 100;
+    const pick = plots[Math.floor(Math.random() * (plots.length || 1))];
+    await supabase.from('deliveries').insert({
+      ref: `D-${n}`, gate: Math.random() > 0.5 ? 'North Gate' : 'South Gate',
+      for_plot: pick ? pick.name : 'Plot 1', eta_text: 'Now',
+    });
+  };
+
+  const addAlert = async () => {
+    const types = ['PPE', 'Intrusion', 'Power'];
+    const details = ['No hard hat near Gate A', 'Motion near storage yard', 'Power outage in Plot 4'];
+    await supabase.from('alerts').insert({
+      type: types[Math.floor(Math.random() * types.length)],
+      detail: details[Math.floor(Math.random() * details.length)],
+    });
+  };
 
   return (
     <div className="layout">
-      <div id="map" className="map" />
-
+      <div id="map" className="mapContainer" />
       <aside className="sidebar">
         <h1>One.Site Assist</h1>
 
         <section className="panel">
           <h2>Weather</h2>
-          {!weather ? (
-            <p>Loading…</p>
-          ) : (
-            <div className="row">
+          {!weather ? <p>Loading…</p> : (
+            <div className="weather">
               <div>Temp: {weather.temperature}°C</div>
               <div>Wind: {weather.windspeed} km/h</div>
+              <div>Dir: {weather.winddirection}°</div>
             </div>
           )}
         </section>
 
         <section className="panel">
-          <h2>Workers</h2>
+          <h2>Workers On Site</h2>
           <div className="big">{workers}</div>
           <div className="row">
             <button onClick={() => setWorkers((w) => Math.max(0, w - 1))}>-1</button>
@@ -112,44 +137,41 @@ export default function App() {
         </section>
 
         <section className="panel">
-          <h2>Plots</h2>
-          {plots.length === 0 ? (
-            <p>No plots yet</p>
-          ) : (
-            <ul className="list">
-              {plots.map((p) => (
-                <li key={p.id}>
-                  <button className="pill" onClick={() => setSelectedPlot(p)}>
-                    {p.name}: {p.status}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          {selectedPlot && (
-            <div className="selected">
-              <div className="muted">Selected</div>
-              <div><strong>{selectedPlot.name}</strong></div>
-              <div>{selectedPlot.status}</div>
-              <div>📍 {selectedPlot.lat}, {selectedPlot.lng}</div>
+          <h2>Selected Plot</h2>
+          {selectedPlot ? (
+            <div className="plotBox">
+              <div className="plotTitle">{selectedPlot.name}</div>
+              <div>Status: <strong>{selectedPlot.status}</strong></div>
+              <button onClick={() => updatePlotStatus(selectedPlot)}>Cycle Status</button>
             </div>
-          )}
+          ) : <p>No plot selected</p>}
+          <ul className="plotsList">
+            {plots.map((p) => (
+              <li key={p.id}>
+                <button className={`pill ${p.status.replace(' ', '-')}`} onClick={() => setSelectedPlot(p)}>
+                  {p.name}: {p.status}
+                </button>
+              </li>
+            ))}
+          </ul>
         </section>
 
         <section className="panel">
           <h2>Deliveries</h2>
+          <button onClick={addDelivery}>Add delivery</button>
           <ul className="list">
             {deliveries.map((d) => (
-              <li key={d.id}><strong>{d.id}</strong> • {d.time} • {d.gate} • {d.for}</li>
+              <li key={d.id}><strong>{d.ref}</strong> • {d.eta_text} • {d.gate} • {d.for_plot}</li>
             ))}
           </ul>
         </section>
 
         <section className="panel">
           <h2>Alerts</h2>
+          <button onClick={addAlert}>Add alert</button>
           <ul className="list">
             {alerts.map((a) => (
-              <li key={a.id}><strong>{a.type}</strong> • {a.detail} • {a.time}</li>
+              <li key={a.id}><strong>{a.type}</strong> • {a.detail}</li>
             ))}
           </ul>
         </section>
