@@ -33,12 +33,7 @@ function App() {
     { id: "D-1001", time: "08:17", gate: "North Gate", for: "Plot 6" }
   ]);
   const [alerts, setAlerts] = useState([
-    {
-      id: "A-2001",
-      type: "PPE",
-      detail: "No hard hat detected at Plot 12",
-      time: "08:05"
-    }
+    { id: "A-2001", type: "PPE", detail: "No hard hat detected at Plot 12", time: "08:05" }
   ]);
 
   // Live weather (no API key)
@@ -58,7 +53,8 @@ function App() {
   const markersRef = useRef([]);
 
   useEffect(() => {
-    if (mapRef.current) return; // init once
+    // init once
+    if (mapRef.current) return;
     const map = new mapboxgl.Map({
       container: "map",
       style: "mapbox://styles/mapbox/streets-v12",
@@ -68,8 +64,8 @@ function App() {
     mapRef.current = map;
 
     map.on("load", drawMarkers);
+
     return () => map.remove();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Re-draw markers whenever plot status changes
@@ -77,7 +73,6 @@ function App() {
     if (!mapRef.current) return;
     clearMarkers();
     drawMarkers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plots]);
 
   const clearMarkers = () => {
@@ -96,10 +91,7 @@ function App() {
         )
         .addTo(mapRef.current);
 
-      marker.getElement().addEventListener("click", () => {
-        setSelectedPlot(plot);
-      });
-
+      marker.getElement().addEventListener("click", () => setSelectedPlot(plot));
       markersRef.current.push(marker);
     });
   };
@@ -111,7 +103,6 @@ function App() {
     setPlots((prev) =>
       prev.map((p) => (p.id === id ? { ...p, status: cycleStatus(p.status) } : p))
     );
-    // also update the selected plot status so the sidebar reflects it immediately
     if (selectedPlot?.id === id) {
       setSelectedPlot((sp) => ({ ...sp, status: cycleStatus(sp.status) }));
     }
@@ -127,7 +118,10 @@ function App() {
 
   const addFakeAlert = () => {
     const n = alerts.length + 1;
-    setAlerts([{ id: `A-20${n}`, type: "Intrusion", detail: "Motion near storage", time: "Now" }, ...alerts]);
+    setAlerts([
+      { id: `A-20${n}`, type: "Intrusion", detail: "Motion near storage", time: "Now" },
+      ...alerts
+    ]);
   };
 
   return (
@@ -163,9 +157,7 @@ function App() {
           <h2>Selected Plot</h2>
           <div className="plotBox">
             <div className="plotTitle">{selectedPlot?.name}</div>
-            <div>
-              Status: <strong>{selectedPlot?.status}</strong>
-            </div>
+            <div>Status: <strong>{selectedPlot?.status}</strong></div>
             <button onClick={() => updatePlotStatus(selectedPlot.id)}>Cycle Status</button>
           </div>
           <ul className="plotsList">
@@ -187,9 +179,7 @@ function App() {
           <button onClick={addFakeDelivery}>Add delivery (demo)</button>
           <ul className="list">
             {deliveries.map((d) => (
-              <li key={d.id}>
-                <strong>{d.id}</strong> • {d.time} • {d.gate} • {d.for}
-              </li>
+              <li key={d.id}><strong>{d.id}</strong> • {d.time} • {d.gate} • {d.for}</li>
             ))}
           </ul>
         </section>
@@ -199,9 +189,7 @@ function App() {
           <button onClick={addFakeAlert}>Add alert (demo)</button>
           <ul className="list">
             {alerts.map((a) => (
-              <li key={a.id}>
-                <strong>{a.type}</strong> • {a.detail} • {a.time}
-              </li>
+              <li key={a.id}><strong>{a.type}</strong> • {a.detail} • {a.time}</li>
             ))}
           </ul>
         </section>
@@ -210,6 +198,7 @@ function App() {
   );
 }
 
-// ⬇️ THIS PART mounts the app (what was missing before)
+// Mount the app
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(<App />);
+
