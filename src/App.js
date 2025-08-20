@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
-import "mapbox-gl/dist/mapbox-gl.css";
 import { createClient } from "@supabase/supabase-js";
 
 // --- Supabase client (your project + anon key) ---
