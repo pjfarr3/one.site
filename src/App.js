@@ -1,53 +1,45 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-// Mapbox comes from the CDN script in index.html
+// Mapbox is provided by the CDN script in index.html
 const mapboxgl = window.mapboxgl;
 
-// --- Supabase client (your project + anon key) ---
+// Supabase client
 const supabase = createClient(
   "https://woahoxnnnctszdzyjnjf.supabase.co",
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndvYWhveG5ubmN0c3pkenlqbmpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU2MzgxNDUsImV4cCI6MjA3MTIxNDE0NX0.byPU10k40RgB9Xypg1RbtBvjZor_hCfCWjhbuZ6gz28"
 );
 
-// --- Mapbox token (env first, fallback to your token) ---
+// Mapbox token
 const MAPBOX_TOKEN =
   process.env.REACT_APP_MAPBOX_TOKEN ||
   "pk.eyJ1IjoicGpmYXJyMyIsImEiOiJjbWVqM3BhYjEwMG1vMm1xdGJwb3lpd290In0.B5vwM_eiKFnm32GBNipinQ";
 
-// London centre
-const MAP_CENTER = [-0.1276, 51.5072];
+const MAP_CENTER = [-0.1276, 51.5072]; // London
 
 export default function App() {
   const [plots, setPlots] = useState([]);
   const [selectedPlot, setSelectedPlot] = useState(null);
   const [workers, setWorkers] = useState(28);
-  const [deliveries] = useState([
-    { id: "D-1001", time: "08:17", gate: "North", for: "Plot 2" },
-  ]);
-  const [alerts] = useState([
-    { id: "A-2001", type: "PPE", detail: "No hard hat at Plot 1", time: "08:05" },
-  ]);
+  const [deliveries] = useState([{ id: "D-1001", time: "08:17", gate: "North", for: "Plot 2" }]);
+  const [alerts] = useState([{ id: "A-2001", type: "PPE", detail: "No hard hat at Plot 1", time: "08:05" }]);
   const [weather, setWeather] = useState(null);
 
   const mapRef = useRef(null);
   const markersRef = useRef([]);
 
-  // 1) Fetch plots from Supabase (expects columns: id, name, status, lng, lat)
+  // Fetch plots from Supabase
   useEffect(() => {
-    supabase
-      .from("plots")
-      .select("*")
-      .then(({ data, error }) => {
-        if (error) {
-          console.error("Supabase error:", error.message);
-          return;
-        }
-        setPlots(data || []);
-      });
+    supabase.from("plots").select("*").then(({ data, error }) => {
+      if (error) {
+        console.error("Supabase error:", error.message);
+        return;
+      }
+      setPlots(data || []);
+    });
   }, []);
 
-  // 2) Init the Map once
+  // Init the Map once
   useEffect(() => {
     if (mapRef.current) return;
     if (!mapboxgl) {
@@ -66,14 +58,11 @@ export default function App() {
     return () => map.remove();
   }, []);
 
-  // 3) Draw markers each time plots change
+  // Draw markers when plots change
   useEffect(() => {
     if (!mapRef.current || !mapboxgl) return;
-
-    // clear old
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
-
     plots.forEach((p) => {
       if (typeof p.lng !== "number" || typeof p.lat !== "number") return;
       const marker = new mapboxgl.Marker()
@@ -85,12 +74,10 @@ export default function App() {
     });
   }, [plots]);
 
-  // 4) Weather (Open-Meteo, no key)
+  // Weather (Open-Meteo)
   useEffect(() => {
     const [lng, lat] = MAP_CENTER;
-    fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`
-    )
+    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`)
       .then((r) => r.json())
       .then((d) => setWeather(d.current_weather))
       .catch(() => setWeather(null));
@@ -142,13 +129,9 @@ export default function App() {
           {selectedPlot && (
             <div className="selected">
               <div className="muted">Selected</div>
-              <div>
-                <strong>{selectedPlot.name}</strong>
-              </div>
+              <div><strong>{selectedPlot.name}</strong></div>
               <div>{selectedPlot.status}</div>
-              <div>
-                📍 {selectedPlot.lat}, {selectedPlot.lng}
-              </div>
+              <div>📍 {selectedPlot.lat}, {selectedPlot.lng}</div>
             </div>
           )}
         </section>
@@ -157,9 +140,7 @@ export default function App() {
           <h2>Deliveries</h2>
           <ul className="list">
             {deliveries.map((d) => (
-              <li key={d.id}>
-                <strong>{d.id}</strong> • {d.time} • {d.gate} • {d.for}
-              </li>
+              <li key={d.id}><strong>{d.id}</strong> • {d.time} • {d.gate} • {d.for}</li>
             ))}
           </ul>
         </section>
@@ -168,9 +149,7 @@ export default function App() {
           <h2>Alerts</h2>
           <ul className="list">
             {alerts.map((a) => (
-              <li key={a.id}>
-                <strong>{a.type}</strong> • {a.detail} • {a.time}
-              </li>
+              <li key={a.id}><strong>{a.type}</strong> • {a.detail} • {a.time}</li>
             ))}
           </ul>
         </section>
