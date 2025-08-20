@@ -1,3 +1,4 @@
+import { supabase } from "./supabaseClient";
 import React, { useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom/client";
 import mapboxgl from "mapbox-gl";
