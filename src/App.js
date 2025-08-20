@@ -66,7 +66,7 @@ export default function App() {
 
   // ----- Init: weather + map + initial data + realtime -----
   useEffect(() => {
-    // Weather (no API key needed)
+    // Weather (no API key)
     const [lng, lat] = MAP_CENTER;
     fetch(
       `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`
@@ -126,7 +126,7 @@ export default function App() {
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
 
-    // Add markers for each plot
+    // Add markers
     plots.forEach((plot) => {
       if (typeof plot.lng !== 'number' || typeof plot.lat !== 'number') return;
 
@@ -144,7 +144,7 @@ export default function App() {
     });
   }, [plots]);
 
-  // ----- Update plot status (cycles through 3 states) -----
+  // ----- Update plot status (cycle through 3 states) -----
   const cycle = (s) =>
     s === 'Not Started' ? 'In Progress' : s === 'In Progress' ? 'Completed' : 'Not Started';
 
@@ -155,7 +155,7 @@ export default function App() {
       console.error('Failed to update plot:', error);
       return;
     }
-    // Optimistic UI (realtime will also sync)
+    // Optimistic UI (realtime also syncs)
     setPlots((prev) => prev.map((p) => (p.id === plot.id ? { ...p, status: newStatus } : p)));
     if (selectedPlot?.id === plot.id) setSelectedPlot({ ...plot, status: newStatus });
   };
