@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
-import mapboxgl from "mapbox-gl";
 import { createClient } from "@supabase/supabase-js";
+
+// Mapbox comes from the CDN script in index.html
+const mapboxgl = window.mapboxgl;
 
 // --- Supabase client (your project + anon key) ---
 const supabase = createClient(
@@ -12,7 +14,6 @@ const supabase = createClient(
 const MAPBOX_TOKEN =
   process.env.REACT_APP_MAPBOX_TOKEN ||
   "pk.eyJ1IjoicGpmYXJyMyIsImEiOiJjbWVqM3BhYjEwMG1vMm1xdGJwb3lpd290In0.B5vwM_eiKFnm32GBNipinQ";
-mapboxgl.accessToken = MAPBOX_TOKEN;
 
 // London centre
 const MAP_CENTER = [-0.1276, 51.5072];
@@ -49,6 +50,11 @@ export default function App() {
   // 2) Init the Map once
   useEffect(() => {
     if (mapRef.current) return;
+    if (!mapboxgl) {
+      console.error("Mapbox GL not found on window. Check index.html CDN script.");
+      return;
+    }
+    mapboxgl.accessToken = MAPBOX_TOKEN;
     const map = new mapboxgl.Map({
       container: "map",
       style: "mapbox://styles/mapbox/streets-v12",
@@ -62,7 +68,7 @@ export default function App() {
 
   // 3) Draw markers each time plots change
   useEffect(() => {
-    if (!mapRef.current) return;
+    if (!mapRef.current || !mapboxgl) return;
 
     // clear old
     markersRef.current.forEach((m) => m.remove());
