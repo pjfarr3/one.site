@@ -67,7 +67,6 @@ export default function App() {
       channel.unsubscribe();
       if (mapRef.current) mapRef.current.remove();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
