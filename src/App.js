@@ -10,7 +10,6 @@ const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN || '';
 mapboxgl.accessToken = MAPBOX_TOKEN;
 
 const MAP_CENTER = [-0.1276, 51.5072]; // London
-
 const STATUSES = ['Not Started', 'In Progress', 'Completed'];
 
 const statusColors = {
@@ -26,18 +25,19 @@ export default function App() {
   const [alerts, setAlerts] = useState([]);
   const [workers, setWorkers] = useState(28);
   const [weather, setWeather] = useState(null);
+
+  // UI messages + search query
   const [uiError, setUiError] = useState('');
   const [uiOk, setUiOk] = useState('');
+  const [query, setQuery] = useState('');
 
-  // Add-plot form
+  // Add / Edit forms
   const [addForm, setAddForm] = useState({
     name: '',
     status: 'Not Started',
     lat: '',
     lng: '',
   });
-
-  // Edit-plot form (mirrors selectedPlot fields)
   const [editForm, setEditForm] = useState({
     name: '',
     status: 'Not Started',
@@ -48,11 +48,10 @@ export default function App() {
   const mapRef = useRef(null);
   const markersRef = useRef([]);
 
-  // Helpers: show messages
   const ok = (msg) => { setUiOk(msg); setUiError(''); };
   const err = (msg) => { setUiError(msg); setUiOk(''); };
 
-  // ----- Fetch helpers -----
+  // ---------- Fetch helpers ----------
   const fetchPlots = async () => {
     try {
       const { data, error } = await supabase.from('plots').select('*').order('id');
@@ -83,7 +82,6 @@ export default function App() {
       setDeliveries(data || []);
     } catch (e) {
       console.error(e);
-      // non-fatal
     }
   };
 
@@ -97,18 +95,17 @@ export default function App() {
       setAlerts(data || []);
     } catch (e) {
       console.error(e);
-      // non-fatal
     }
   };
 
-  // ----- Init: weather + map + initial data + realtime -----
+  // ---------- Init: weather + map + data + realtime ----------
   useEffect(() => {
-    // Weather (no API key)
+    // Weather (no API key needed)
     const [lng, lat] = MAP_CENTER;
     fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`)
       .then(r => r.json()).then(d => setWeather(d.current_weather)).catch(() => setWeather(null));
 
-    // Map
+    // Map init (with click-to-fill add form)
     if (!MAPBOX_TOKEN) {
       err('Missing Mapbox token. Add REACT_APP_MAPBOX_TOKEN in Vercel → Settings → Environment Variables.');
     } else if (!mapRef.current) {
@@ -120,6 +117,17 @@ export default function App() {
           zoom: 15,
         });
         map.addControl(new mapboxgl.NavigationControl(), 'top-left');
+
+        // Click on map → fill Add Plot lat/lng
+        map.on('click', (e) => {
+          setAddForm((f) => ({
+            ...f,
+            lat: +e.lngLat.lat.toFixed(6),
+            lng: +e.lngLat.lng.toFixed(6),
+          }));
+          ok('Lat/Lng filled from map click.');
+        });
+
         mapRef.current = map;
       } catch (e) {
         console.error(e);
@@ -132,7 +140,7 @@ export default function App() {
     fetchDeliveries();
     fetchAlerts();
 
-    // Realtime (only if supabase client is real)
+    // Realtime
     const channel = supabase?.channel ? supabase
       .channel('live-updates')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'plots' }, fetchPlots)
@@ -144,9 +152,9 @@ export default function App() {
       if (channel?.unsubscribe) channel.unsubscribe();
       if (mapRef.current) mapRef.current.remove();
     };
-  }, []); // once
+  }, []); // once only
 
-  // ----- Redraw markers when plots change -----
+  // ---------- Redraw markers when plots change ----------
   useEffect(() => {
     if (!mapRef.current) return;
 
@@ -162,7 +170,7 @@ export default function App() {
           new mapboxgl.Popup().setHTML(`
             <strong>${plot.name}</strong><br/>
             Status: ${plot.status}<br/>
-            (${plot.lat.toFixed ? plot.lat.toFixed(5) : plot.lat}, ${plot.lng.toFixed ? plot.lng.toFixed(5) : plot.lng})
+            (${plot.lat}, ${plot.lng})
           `)
         )
         .addTo(mapRef.current);
@@ -181,7 +189,7 @@ export default function App() {
     });
   }, [plots]);
 
-  // ----- Plot status cycle -----
+  // ---------- Status cycle ----------
   const cycle = (s) =>
     s === 'Not Started' ? 'In Progress' : s === 'In Progress' ? 'Completed' : 'Not Started';
 
@@ -199,7 +207,7 @@ export default function App() {
     }
   };
 
-  // ----- Add Plot -----
+  // ---------- Add Plot ----------
   const fillFromCenter = () => {
     if (!mapRef.current) return;
     const c = mapRef.current.getCenter();
@@ -232,7 +240,7 @@ export default function App() {
     }
   };
 
-  // ----- Edit / Delete Selected Plot -----
+  // ---------- Edit / Delete selected plot ----------
   const saveSelectedPlot = async () => {
     if (!selectedPlot) return;
     try {
@@ -266,7 +274,7 @@ export default function App() {
     }
   };
 
-  // ----- Insert demo rows -----
+  // ---------- Demo rows ----------
   const addDelivery = async () => {
     try {
       const n = Math.floor(Math.random() * 900) + 100;
@@ -305,6 +313,17 @@ export default function App() {
     }
   };
 
+  // ---------- Helpers ----------
+  const centerOnSelected = () => {
+    if (!mapRef.current || !selectedPlot) return;
+    if (typeof selectedPlot.lng !== 'number' || typeof selectedPlot.lat !== 'number') return;
+    mapRef.current.flyTo({ center: [selectedPlot.lng, selectedPlot.lat], zoom: 17, essential: true });
+  };
+
+  const filteredPlots = plots.filter((p) =>
+    (p.name || '').toLowerCase().includes(query.toLowerCase())
+  );
+
   return (
     <div className="layout">
       <div id="map" className="mapContainer" />
@@ -313,16 +332,8 @@ export default function App() {
         <h1>One.Site Assist</h1>
 
         {/* Status messages */}
-        {uiOk && (
-          <div className="banner ok">
-            {uiOk}
-          </div>
-        )}
-        {uiError && (
-          <div className="banner err">
-            {uiError}
-          </div>
-        )}
+        {uiOk && <div className="banner ok">{uiOk}</div>}
+        {uiError && <div className="banner err">{uiError}</div>}
 
         <section className="panel">
           <h2>Weather</h2>
@@ -400,7 +411,10 @@ export default function App() {
               <div className="plotBox">
                 <div className="plotTitle">{selectedPlot.name}</div>
                 <div>Status: <strong>{selectedPlot.status}</strong></div>
-                <button onClick={() => updatePlotStatus(selectedPlot)}>Cycle Status</button>
+                <div className="row" style={{ marginTop: 6 }}>
+                  <button onClick={() => updatePlotStatus(selectedPlot)}>Cycle Status</button>
+                  <button onClick={centerOnSelected} className="secondary">Center on selected</button>
+                </div>
               </div>
 
               <div className="form">
@@ -446,8 +460,21 @@ export default function App() {
             </>
           )}
 
+          {/* Search + list */}
+          <div className="form" style={{ marginTop: 10 }}>
+            <label>
+              Search plots
+              <input
+                placeholder="Type to filter by name…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </label>
+          </div>
+
           <ul className="plotsList">
-            {plots.map((p) => (
+            {filteredPlots.length === 0 && <li>No matching plots</li>}
+            {filteredPlots.map((p) => (
               <li key={p.id}>
                 <button
                   className={`pill ${p.status?.replace(' ', '-')}`}
