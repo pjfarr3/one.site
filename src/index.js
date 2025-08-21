@@ -2,7 +2,16 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
-import App from './App';
+
+function ensureRoot() {
+  let el = document.getElementById('root');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'root';
+    document.body.appendChild(el);
+  }
+  return el;
+}
 
 function createOverlay() {
   const el = document.createElement('div');
@@ -26,41 +35,49 @@ function showOverlay(msg) {
   el.textContent = msg;
 }
 
+// Global runtime error catches (so we never blank)
 window.addEventListener('error', (e) => showOverlay(`Runtime error: ${e.message}`));
 window.addEventListener('unhandledrejection', (e) =>
   showOverlay(`Promise rejection: ${e.reason?.message || String(e.reason)}`)
 );
 
-class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { error: null };
-  }
-  static getDerivedStateFromError(error) {
-    return { error };
-  }
-  componentDidCatch(error, info) {
-    console.error('Uncaught error:', error, info);
-    showOverlay(String(error));
-  }
-  render() {
-    if (this.state.error) {
-      return (
-        <div style={{ padding: 24, fontFamily: 'system-ui, sans-serif' }}>
-          <h1>Something went wrong.</h1>
-          <pre style={{ whiteSpace: 'pre-wrap' }}>{String(this.state.error)}</pre>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
-const root = ReactDOM.createRoot(document.getElementById('root'));
+// Minimal loader so you *always* see something
+const root = ReactDOM.createRoot(ensureRoot());
 root.render(
-  <React.StrictMode>
-    <ErrorBoundary>
-      <App />
-    </ErrorBoundary>
-  </React.StrictMode>
+  <div style={{ padding: 16, fontFamily: 'system-ui, sans-serif', color: '#111' }}>
+    Loading UI shell…
+  </div>
 );
+
+// Dynamically import App so if it fails, we can show the error instead of a white page
+import('./App')
+  .then(({ default: App }) => {
+    class ErrorBoundary extends React.Component {
+      constructor(props) { super(props); this.state = { error: null }; }
+      static getDerivedStateFromError(error) { return { error }; }
+      componentDidCatch(error, info) { console.error('Uncaught error:', error, info); showOverlay(String(error)); }
+      render() {
+        if (this.state.error) {
+          return (
+            <div style={{ padding: 24, fontFamily: 'system-ui, sans-serif' }}>
+              <h1>Something went wrong.</h1>
+              <pre style={{ whiteSpace: 'pre-wrap' }}>{String(this.state.error)}</pre>
+            </div>
+          );
+        }
+        return this.props.children;
+      }
+    }
+
+    root.render(
+      <React.StrictMode>
+        <ErrorBoundary>
+          <App />
+        </ErrorBoundary>
+      </React.StrictMode>
+    );
+  })
+  .catch((err) => {
+    console.error('Failed to load App:', err);
+    showOverlay(`Failed to load App: ${err?.message || String(err)}`);
+  });
