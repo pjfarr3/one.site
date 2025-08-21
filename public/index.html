@@ -2,16 +2,23 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>One.Site Assist</title>
     <style>
       html, body, #root { height: 100%; margin: 0; }
-      noscript { display:block; padding:16px; background:#fee2e2; color:#991b1b; }
+      .fallback { padding: 24px; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+      .fallback strong { color: #b91c1c; }
     </style>
+    <script>
+      // marker so we know HTML loaded even if JS bundle doesn’t run
+      window.__HTML_OK__ = true;
+    </script>
   </head>
   <body>
-    <noscript>JavaScript is required to run this app.</noscript>
+    <div class="fallback">
+      <strong>HTML loaded.</strong> If you can see this but not “Test A”, the JS bundle didn’t start.
+      When JS starts, this will be replaced.
+    </div>
     <div id="root"></div>
   </body>
 </html>
