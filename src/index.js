@@ -1,4 +1,3 @@
-// src/index.js
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
@@ -35,13 +34,11 @@ function showOverlay(msg) {
   el.textContent = msg;
 }
 
-// Global runtime error catches (so we never blank)
 window.addEventListener('error', (e) => showOverlay(`Runtime error: ${e.message}`));
 window.addEventListener('unhandledrejection', (e) =>
   showOverlay(`Promise rejection: ${e.reason?.message || String(e.reason)}`)
 );
 
-// Minimal loader so you *always* see something
 const root = ReactDOM.createRoot(ensureRoot());
 root.render(
   <div style={{ padding: 16, fontFamily: 'system-ui, sans-serif', color: '#111' }}>
@@ -49,7 +46,6 @@ root.render(
   </div>
 );
 
-// Dynamically import App so if it fails, we can show the error instead of a white page
 import('./App')
   .then(({ default: App }) => {
     class ErrorBoundary extends React.Component {
