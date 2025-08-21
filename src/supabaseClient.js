@@ -15,7 +15,7 @@ try {
   }
 } catch (e) {
   console.error('Supabase init failed:', e);
-  supabase = null; // keep app running
+  supabase = null;
 }
 
 export { supabase };
